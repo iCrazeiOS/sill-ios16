@@ -129,7 +129,7 @@ extension DuoPosture {
         switch environment.source {
         case .standIn(let fold):
             guard environment.hinge != .unknown else { return .unknown }
-            let origin = geo.frame(in: .named(displaySpace)).origin
+            let origin = geo.frame(in: CoordinateSpace.named(displaySpace)).origin
             return DuoPosture(hinge: environment.hinge, fold: fold?.offsetBy(dx: -origin.x, dy: -origin.y))
         case .reservedRegions:
             if #available(iOS 27.1, *) {
@@ -163,7 +163,7 @@ private struct DuoLogger: ViewModifier {
 
     func body(content: Content) -> some View {
         #if DEBUG
-        content.onChange(of: line, initial: true) { _, now in
+        content.onChange16(of: line, initial: true) { _, now in
             if known { print("duo: \(screen): \(now)") }
         }
         #else

@@ -252,12 +252,12 @@ struct StreamScreen: View {
                 .allowsHitTesting(!overlayShown && tour == nil)
                 // The pointer sprite follows the layout: the trackpad's arrow shows only in the
                 // laptop layout, and a rotation re-renders it at once; the Mac's arrow stays.
-                .onChange(of: DuoLayout.of(geo.size).isPortrait, initial: true) { _, portrait in
+                .onChange16(of: DuoLayout.of(geo.size).isPortrait, initial: true) { _, portrait in
                     client.setPointerLayout(portrait: portrait)
                 }
                 // The clipboard's chip on screen or not: its 20 s run only while it is, and VoiceOver
                 // is told when it first shows (ClipboardPolicy.chipCounts).
-                .onChange(of: clipboardChipOnScreen, initial: true) { _, onScreen in
+                .onChange16(of: clipboardChipOnScreen, initial: true) { _, onScreen in
                     client.clipboardChipShown(onScreen)
                 }
                 // The clipboard's chip (docs/clipboard-plan.md): a sibling after the layouts, so its
@@ -296,13 +296,13 @@ struct StreamScreen: View {
                                    close: { withAnimation(.easeOut(duration: 0.2)) { pairingOverlay = false } })
                 }
             }
-            .coordinateSpace(.named(TourSpace.name))
+            .coordinateSpace(name: TourSpace.name)
             .onPreferenceChange(TourTargetsKey.self) { tourTargets = $0 }
-            .onChange(of: layout, initial: true) { _, now in layoutChanged(to: now) }
+            .onChange16(of: layout, initial: true) { _, now in layoutChanged(to: now) }
             // A thumbnail's lights hang from the strip, which Larger Picture's arrangement has none
             // of: when the arrangement changes under them (what streams changed, or a turn), they
             // close rather than wait, unseen, to come back with the strip.
-            .onChange(of: largerKeyboard != nil) { _, _ in
+            .onChange16(of: largerKeyboard != nil) { _, _ in
                 #if DEBUG
                 if windowMenu != nil { print("lights: closed, the phone's arrangement changed under them") }
                 #endif
@@ -317,7 +317,7 @@ struct StreamScreen: View {
             #if DEBUG
             // The console's line for the gates: what Larger Picture's rule made of the switch and of
             // what streams, on a phone held upright, each time one of them or the outcome changes.
-            .onChange(of: layout == .phone ? largerPictureLine(largerKeyboard) : "", initial: true) { _, line in
+            .onChange16(of: layout == .phone ? largerPictureLine(largerKeyboard) : "", initial: true) { _, line in
                 if !line.isEmpty { print(line) }
             }
             #endif
@@ -332,18 +332,18 @@ struct StreamScreen: View {
             }
         }
         .animation(.spring(duration: 0.25, bounce: 0.2), value: windowMenu)
-        .onChange(of: client.pendingLink) { _, link in
+        .onChange16(of: client.pendingLink) { _, link in
             // An outside link while streaming: the panel and the keyboard go first, as for Pair This iPad….
             if link != nil { openLinkOverlay() }
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange16(of: scenePhase) { _, phase in
             // A gesture cut short by a scene change never ends: put the transient UI away.
             if phase != .active { scaleOpen = false; windowMenu = nil }
         }
         // One thing open at a time: the Aa ruler and a thumbnail's traffic lights put the Settings
         // panel away. (Opening the panel closes them, the drawer and the keyboard.)
-        .onChange(of: scaleOpen) { _, open in if open { setSettings(false) } }
-        .onChange(of: windowMenu) { _, menu in if menu != nil { setSettings(false) } }
+        .onChange16(of: scaleOpen) { _, open in if open { setSettings(false) } }
+        .onChange16(of: windowMenu) { _, menu in if menu != nil { setSettings(false) } }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
             // A fresh connection starts on the Desktop (the client asks for it as soon as the host
@@ -355,23 +355,23 @@ struct StreamScreen: View {
             runLaunchArguments()
             #endif
         }
-        .onChange(of: client.active) { _, source in
+        .onChange16(of: client.active) { _, source in
             if source != .none { withAnimation(.easeOut(duration: 0.18)) { drawerOpen = false } }
             // The host sizes a window as it selects it, from the last viewport it has; this repeat
             // is for a host that restarted, or a window that was picked from the Mac's side.
             sendViewport()
         }
-        .onChange(of: client.connected) { _, up in
+        .onChange16(of: client.connected) { _, up in
             if up { sendViewport() }
         }
         // A hardware keyboard (docs/hardware-keyboard-plan.md §2): the input view takes the keyboard by
         // itself while one is attached and nothing open takes it, never as the person's own.
         .onReceive(HardwareKeyboardMonitor.shared.$attached) { overlay.update(attached: $0) }
-        .onChange(of: keyboardTakers, initial: true) { _, takers in overlay.update(takers: takers) }
+        .onChange16(of: keyboardTakers, initial: true) { _, takers in overlay.update(takers: takers) }
         // Rotation animates, and a Mac window resize restarts the stream, so let the size settle.
-        .onChange(of: panelSize) { _, _ in sendViewport(after: 0.25) }
+        .onChange16(of: panelSize) { _, _ in sendViewport(after: 0.25) }
         // Same wait for Aa: cycling from Off to 0.8× passes three sizes nobody wants the Mac to try.
-        .onChange(of: textScale) { _, _ in sendViewport(after: 0.25) }
+        .onChange16(of: textScale) { _, _ in sendViewport(after: 0.25) }
         // The stream rate follows the panel (`StreamClient.wantedFPS`): re-send when Low Power Mode
         // toggles or the screen's mode changes. Both notifications can arrive off the main thread.
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange).receive(on: RunLoop.main)) { _ in
@@ -383,22 +383,22 @@ struct StreamScreen: View {
         // Away from home the stream rate follows the route (60 fps through a VPN or the internet): a
         // session that stops being away (the move home) asks for its full rate whatever path it took
         // (docs/remote-bundle-plan.md §7.3).
-        .onChange(of: client.remoteRoute) { _, _ in sendViewport() }
+        .onChange16(of: client.remoteRoute) { _, _ in sendViewport() }
         // The link's line over the stream (§6.7): a report arriving or clearing, or the panel, the
         // drawer or the pairing overlay opening or closing over it.
-        .onChange(of: linkReportLine, initial: true) { _, _ in updateLinkLine() }
-        .onChange(of: linkLineAllowed) { _, _ in updateLinkLine() }
+        .onChange16(of: linkReportLine, initial: true) { _, _ in updateLinkLine() }
+        .onChange16(of: linkLineAllowed) { _, _ in updateLinkLine() }
         // The tour: the first picture starts its beat; an outside link puts it aside and back.
-        .onChange(of: pictureReady, initial: true) { _, ready in if ready { pictureCame() } }
+        .onChange16(of: pictureReady, initial: true) { _, ready in if ready { pictureCame() } }
         // The bar's own controls used, by a tap or by VoiceOver, Switch Control, Voice Control or
         // Full Keyboard Access (none of which makes a touch): something happening, for its rule.
-        .onChange(of: drawerOpen) { _, _ in client.noteAction() }
-        .onChange(of: settingsOpen) { _, _ in client.noteAction() }
-        .onChange(of: keyboardShown) { _, _ in client.noteAction() }
-        .onChange(of: scaleOpen) { _, _ in client.noteAction() }
-        .onChange(of: textScale) { _, _ in client.noteAction() }
-        .onChange(of: tourCard, initial: true) { _, card in tourCardChanged(card) }
-        .onChange(of: tourVoiceOver) { _, _ in carryTour(reason: "VoiceOver") }
+        .onChange16(of: drawerOpen) { _, _ in client.noteAction() }
+        .onChange16(of: settingsOpen) { _, _ in client.noteAction() }
+        .onChange16(of: keyboardShown) { _, _ in client.noteAction() }
+        .onChange16(of: scaleOpen) { _, _ in client.noteAction() }
+        .onChange16(of: textScale) { _, _ in client.noteAction() }
+        .onChange16(of: tourCard, initial: true) { _, card in tourCardChanged(card) }
+        .onChange16(of: tourVoiceOver) { _, _ in carryTour(reason: "VoiceOver") }
         // The session is over: a decision still waiting out its beat must not land in the next
         // session's `client.tourSession`.
         .onDisappear {
@@ -432,7 +432,7 @@ struct StreamScreen: View {
     /// the linger's end.
     private func updateLinkLine() {
         if let words = linkLine.update(report: linkReportLine, allowed: linkLineAllowed, now: ProcessInfo.processInfo.systemUptime) {
-            AccessibilityNotification.Announcement(words).post()
+            A11y.announce(words)
             #if DEBUG
             print("link: the stream's line “\(words)” (announced)")
             #endif
@@ -962,7 +962,7 @@ struct StreamScreen: View {
         if tourKeyboardAfter && !overlayShown { overlay.setKeyboard(shown: true) }
         tourKeyboardAfter = false
         // VoiceOver reads the stream screen afresh (not from under the pairing overlay).
-        if onScreen { AccessibilityNotification.ScreenChanged().post() }
+        if onScreen { A11y.screenChanged() }
     }
 
     /// Settings › Take the Tour: the panel closes without putting the keyboard back (the tour does,
@@ -1429,7 +1429,7 @@ struct TextScaleControl: View {
                 .allowsHitTesting(false)
         }
         .zIndex(open ? 1 : 0)
-        .onChange(of: open, initial: true) { _, isOpen in if isOpen { live = scale ?? 1.0 } }
+        .onChange16(of: open, initial: true) { _, isOpen in if isOpen { live = scale ?? 1.0 } }
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .local)
@@ -1610,7 +1610,7 @@ struct WindowStrip: View {
                                      .init(color: .black, location: fade),
                                      .init(color: .clear, location: 1)],
                              startPoint: .leading, endPoint: .trailing))
-        .onChange(of: client.windows) { _, now in
+        .onChange16(of: client.windows) { _, now in
             // A window that closed or minimized takes its menu, and any drag, with it.
             if let id = menuFor, !now.contains(where: { $0.id == id }) { closeMenu() }
             if let id = lifted, !now.contains(where: { $0.id == id }) {

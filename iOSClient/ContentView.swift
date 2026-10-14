@@ -524,7 +524,7 @@ struct LayoutHarness: View {
                 insetScreen
                     .environment(\.duoEnvironment, spec.duoEnvironment)
                     .frame(width: spec.size.width, height: spec.size.height)
-                    .coordinateSpace(.named(DuoPosture.displaySpace))
+                    .coordinateSpace(name: DuoPosture.displaySpace)
                     .clipped()
                     .padding(1)
                     .background(Color(hex: 0x333333))
@@ -582,11 +582,20 @@ struct LayoutHarness: View {
         if let want = spec.insets {
             GeometryReader { g in
                 let have = g.safeAreaInsets
-                screen.safeAreaPadding(EdgeInsets(top: max(0, want.top - have.top), leading: max(0, want.leading - have.leading),
-                                                  bottom: max(0, want.bottom - have.bottom),
-                                                  trailing: max(0, want.trailing - have.trailing)))
-                    // Black under the insets too, as the app's own root is (ContentView's `app`).
-                    .background(Color.black)
+                let insets = EdgeInsets(top: max(0, want.top - have.top), leading: max(0, want.leading - have.leading),
+                                        bottom: max(0, want.bottom - have.bottom),
+                                        trailing: max(0, want.trailing - have.trailing))
+                if #available(iOS 17, *) {
+                    screen.safeAreaPadding(insets)
+                        // Black under the insets too, as the app's own root is (ContentView's `app`).
+                        .background(Color.black)
+                } else {
+                    // iOS 16: the padding alone. Descendants then see the simulator's own insets
+                    // rather than the faked ones, so harness photos taken on iOS 16 may place
+                    // inset-driven content slightly differently; production never takes this path.
+                    screen.padding(insets)
+                        .background(Color.black)
+                }
             }
         } else {
             screen
@@ -996,8 +1005,8 @@ struct ConnectScreen: View {
                             .accessibilityHidden(true)
                     }
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollIndicatorsFlash(onAppear: true)
+                .sizeBounce16()
+                .flashIndicators16(onAppear: true)
                 // A column that scrolls fades out above the footer instead of being cut off at it, and
                 // keeps a little room before it. Both are in the gap, which a column that fits keeps
                 // clear, so neither ever reaches one.
@@ -1017,11 +1026,11 @@ struct ConnectScreen: View {
             .duoLog(posture, size: geo.size, screen: "connect screen")
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .onChange(of: client.pairing) { old, new in
+        .onChange16(of: client.pairing) { old, new in
             // Paired but no session came (10 s): the card closes, and the Mac is a saved row.
             if case .paired = old, new == .idle, !client.connected { fold() }
         }
-        .onChange(of: client.homeAsk) { _, ask in
+        .onChange16(of: client.homeAsk) { _, ask in
             if let ask, ask.phase == .shown {
                 // The Mac shows its code: the home card for that row.
                 if homeCard != ask.name { unfoldHome(ask.name) }
@@ -1039,13 +1048,13 @@ struct ConnectScreen: View {
         // closed it), which is already set when this screen comes back. A changed Text alone is
         // never spoken, and the rows keep the focus.
         .onAppear { announce(client.status) }
-        .onChange(of: client.status) { _, line in announce(line) }
+        .onChange16(of: client.status) { _, line in announce(line) }
     }
 
     /// Not the idle "Looking for Macs…" lines, which change as the search does.
     private func announce(_ line: String) {
         guard !line.isEmpty, line != StreamClient.lookingOnNetwork, line != StreamClient.lookingNearby else { return }
-        AccessibilityNotification.Announcement(line).post()
+        A11y.announce(line)
     }
 
     private func column(_ layout: ConnectLayout) -> some View {
@@ -1157,7 +1166,7 @@ struct ConnectScreen: View {
                 Button(action: {
                     client.searchNearby()
                     // The button leaves from under VoiceOver's cursor: say what it started.
-                    AccessibilityNotification.Announcement("Also looking nearby").post()
+                    A11y.announce("Also looking nearby")
                 }) {
                     Text("Search Nearby")
                         .font(.system(size: 15, weight: .semibold))

@@ -8,6 +8,32 @@ Formerly winstream; the folder still carries the old name.
 
 ## Current step
 
+**iOS 16 floor, synced to main (2026-10-16).** The `ios16` branch is rebased onto upstream main at
+5c323e6 (PR #98, and the clipboard, hardware keyboard, Larger Picture, window-restore,
+settings-window and sleep-reconnect work), the iOS 16 floor on top. The new SwiftUI call sites the
+sync brought are converted the same way: six `onChange` uses (the clipboard chip, the phone
+console, Larger Picture's console line, the hardware keyboard's takers) now go through
+`onChange16`, and the scroll, accessibility and haptic sites are unchanged. Verified at the 16.0
+floor: wholemodule Debug (simulator), Release (device) and `swift build -c release` all build
+clean, and `Tests/checks/run-all.sh` is all green. The entry below is the original patch.
+
+**iOS 16 floor (unmerged branch work).** The iOS app's floor drops from iOS 17 to iOS 16
+(`IPHONEOS_DEPLOYMENT_TARGET` 16.0 in all four project configs, `Package.swift`
+`.iOS(.v16)`): `iOSClient/Compat.swift` (new; pbxproj A902/F902) back-deploys the nine iOS 17+
+API groups the app uses — `onChange16(of:initial:_:)` (35 call sites), `A11y`
+(`UIAccessibility.post`, 12 sites), `Haptic` (UIKit generators, 2 sites), the scroll trio
+(`flashIndicators16`, `sizeBounce16`, `defaultAnchorBottom16`), the old `CoordinateSpace.named`
+spelling (5 sites; the dot-shorthand now resolves to the 17+ protocol API, and `frame(in:)`
+never took a String), `safeAreaPadding` (harness-only fallback), symbol effects and
+`phaseAnimator` (gated flourishes), and the hover height/tilt (`if #available(iOS 16.4, *)`).
+Verified: wholemodule Debug (simulator) and Release (device) builds clean, a full-module
+swiftc typecheck at the ios16 target, `run-all.sh` all green, no new warnings. Gaps on iOS 16
+are cosmetic only (no indicator flash, ring pulse, Next nudge or icon bounce). Still needs
+Xcode 27.1 to compile `DuoPostureReader.swift` (its 27.1 SDK symbols; same Swift 6.4 in both
+Xcodes, so no code-level gate exists) and an iOS 16 runtime or device to exercise the
+fallbacks. Docs (README, DEVELOPMENT.md, site index/download) say iOS 16; plan docs stay as
+history.
+
 **The clipboard both ways (2026-10-14, branch `clipboard` from main at 985a733; issue #64; PR #78;
 the plan, its open questions with the default taken for each, the results and the review's fixes are
 in `docs/clipboard-plan.md`).** Noah: work on the clipboard (after #67/#68, #69, #59, #57, #58), text
@@ -502,7 +528,6 @@ nothing on the iOS side, the CLI untouched.
   Sill's virtual display there (Virtual Display on, a window streaming), every tab shows on the
   built-in display and fits it, also once Virtual Display is turned off with Settings open; macOS 14
   or 15 if at hand.
-
 **Release 0.5.1 (2026-10-09, branch `release-0.5.1` from main at 05f2bb8, main merged in again
 at e3ce043 after PR #47; PR #48; Noah's go the same day: "When #47 passes the CI, merge it, then
 once that is merged do #48. Then run the release procedure").** Noah: "I want the release in the GitHub to line up with the app version, I want

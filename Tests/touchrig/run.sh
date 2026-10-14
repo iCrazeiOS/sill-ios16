@@ -73,7 +73,7 @@ cat > "$work/TouchRig.app/Info.plist" <<'PLIST'
 <key>CFBundleShortVersionString</key><string>1.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleSupportedPlatforms</key><array><string>iPhoneSimulator</string></array>
-<key>MinimumOSVersion</key><string>17.0</string>
+<key>MinimumOSVersion</key><string>16.0</string>
 <key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
 <key>UIApplicationSupportsIndirectInputEvents</key><true/>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>

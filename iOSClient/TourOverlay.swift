@@ -31,7 +31,7 @@ extension View {
     func tourTarget(_ target: TourTarget, inset: EdgeInsets = EdgeInsets()) -> some View {
         background {
             GeometryReader { g in
-                let f = g.frame(in: .named(TourSpace.name))
+                let f = g.frame(in: CoordinateSpace.named(TourSpace.name))
                 Color.clear.preference(key: TourTargetsKey.self, value: [target: CGRect(
                     x: f.minX + inset.leading, y: f.minY + inset.top,
                     width: max(0, f.width - inset.leading - inset.trailing),
@@ -360,7 +360,7 @@ private struct TourDim: View {
 
     var body: some View {
         GeometryReader { g in
-            let origin = g.frame(in: .named(TourSpace.name)).origin
+            let origin = g.frame(in: CoordinateSpace.named(TourSpace.name)).origin
             let hole = cutout?.offsetBy(dx: -origin.x, dy: -origin.y)
             let cardHere = card?.offsetBy(dx: -origin.x, dy: -origin.y)
             ZStack(alignment: .topLeading) {
@@ -425,7 +425,7 @@ private struct RingPulse: ViewModifier {
     let on: Bool
 
     func body(content: Content) -> some View {
-        if on {
+        if #available(iOS 17, *), on {
             content.phaseAnimator([0.0, 1.0, 0.0], trigger: step) { ring, phase in
                 ring.scaleEffect(x: 1 + 8 * phase / max(hole.width, 1), y: 1 + 8 * phase / max(hole.height, 1),
                                  anchor: UnitPoint(x: hole.midX / max(size.width, 1), y: hole.midY / max(size.height, 1)))
@@ -433,6 +433,7 @@ private struct RingPulse: ViewModifier {
                 phase == 1 ? .easeOut(duration: 0.15).delay(0.3) : .easeIn(duration: 0.15)
             }
         } else {
+            // iOS 16: no pulse. The ring itself still lands on the lit part.
             content
         }
     }
@@ -479,17 +480,17 @@ private struct TourCard: View {
                 words
                 ScrollViewReader { reader in
                     ScrollView { words.id(Self.wordsTop).padding(.bottom, 16) }
-                        .scrollIndicatorsFlash(onAppear: true)
+                        .flashIndicators16(onAppear: true)
                         // Each step's words start at their top, and show there is more below: the card
                         // keeps its identity from step to step (it slides), and so would the place a
                         // reader scrolled the last step's words to.
-                        .scrollIndicatorsFlash(trigger: run.at)
-                        .onChange(of: run.at) { _, _ in
+                        .flashIndicators16(trigger: run.at)
+                        .onChange16(of: run.at) { _, _ in
                             var top = Transaction()
                             top.disablesAnimations = true
                             withTransaction(top) { reader.scrollTo(Self.wordsTop, anchor: .top) }
                         }
-                        .scrollBounceBehavior(.basedOnSize)
+                        .sizeBounce16()
                         // Words that run on under the footer fade out instead of being cut mid-line.
                         .mask {
                             VStack(spacing: 0) {
@@ -517,11 +518,11 @@ private struct TourCard: View {
             titleFocused = true
         }
         // Each step: VoiceOver's focus on the new title, and a tick on an iPhone.
-        .onChange(of: run.at) { _, _ in
+        .onChange16(of: run.at) { _, _ in
             titleFocused = true
-            AccessibilityNotification.LayoutChanged().post()
+            Haptic.selection()
+            A11y.layoutChanged()
         }
-        .sensoryFeedback(.selection, trigger: run.at)
     }
 
     private var appearAnchor: UnitPoint {
@@ -586,13 +587,23 @@ private struct TourCard: View {
     }
 
     private func symbol(_ row: TourRow) -> some View {
-        Image(systemName: row.symbol)
-            .font(.subheadline)
-            .foregroundStyle(Palette.accent)
-            .contentTransition(.symbolEffect(.replace))
-            .symbolEffect(.bounce, value: run.at)
-            .symbolEffectsRemoved(reduceMotion)
-            .accessibilityHidden(true)
+        Group {
+            if #available(iOS 17, *) {
+                Image(systemName: row.symbol)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.accent)
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: run.at)
+                    .symbolEffectsRemoved(reduceMotion)
+            } else {
+                // iOS 16: the icon still swaps each step, over an opacity fade, without the bounce.
+                Image(systemName: row.symbol)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.accent)
+                    .contentTransition(.opacity)
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     /// The row's words with its control's name semibold: attributes on plain text, never Markdown,
@@ -664,12 +675,27 @@ private struct TourCard: View {
         .buttonStyle(.plain)
         .keyboardShortcut(.defaultAction)
         // A tap on the dim: Next grows a little and back (brightens, under Reduce Motion).
-        .phaseAnimator([0.0, 1.0, 0.0], trigger: nudges) { button, phase in
-            button
-                .scaleEffect(reduceMotion ? 1 : 1 + 0.06 * phase)
-                .brightness(reduceMotion ? 0.15 * phase : 0)
-        } animation: { _ in
-            .easeInOut(duration: 0.125)
+        // The nudge needs iOS 17; on iOS 16 the tap still advances.
+        .modifier(NextNudge(nudges: nudges, reduceMotion: reduceMotion))
+    }
+
+    /// The Next button's nudge on a tap on the dim (a `phaseAnimator`, iOS 17+): nothing on iOS 16.
+    private struct NextNudge: ViewModifier {
+        let nudges: Int
+        let reduceMotion: Bool
+
+        func body(content: Content) -> some View {
+            if #available(iOS 17, *) {
+                content.phaseAnimator([0.0, 1.0, 0.0], trigger: nudges) { button, phase in
+                    button
+                        .scaleEffect(reduceMotion ? 1 : 1 + 0.06 * phase)
+                        .brightness(reduceMotion ? 0.15 * phase : 0)
+                } animation: { _ in
+                    .easeInOut(duration: 0.125)
+                }
+            } else {
+                content
+            }
         }
     }
 

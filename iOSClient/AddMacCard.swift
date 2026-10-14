@@ -97,7 +97,7 @@ struct AddMacCard: View {
                 }
             }
         }
-        .onChange(of: focus) { _, f in editing = f != nil }
+        .onChange16(of: focus) { _, f in editing = f != nil }
         .accessibilityAction(.escape, close)
         .background(EscapeKey(action: close))
     }
@@ -144,7 +144,7 @@ struct AddMacCard: View {
             PairingField(prompt: "0000 0000 0000", label: "Code", text: $code, keyboard: PairingField.codeKeyboard, submit: .go, monospaced: true)
                 .focused($focus, equals: .code)
                 .onSubmit(pair)
-                .onChange(of: code) { _, typed in
+                .onChange16(of: code) { _, typed in
                     let grouped = PairingField.grouped(typed)
                     if grouped != typed { code = grouped }
                 }
@@ -288,8 +288,8 @@ struct ProblemLine: View {
         .foregroundStyle(Color.orange)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityElement(children: .combine)
-        .onAppear { AccessibilityNotification.Announcement(text).post() }
-        .onChange(of: text) { _, t in AccessibilityNotification.Announcement(t).post() }
+        .onAppear { A11y.announce(text) }
+        .onChange16(of: text) { _, t in A11y.announce(t) }
     }
 }
 
